@@ -198,8 +198,8 @@
   // === Environment Variables ===
   const CHAT_WEBHOOK = process.env.CHAT_WEBHOOK;
   const SHEET_ID     = process.env.SHEET_ID;
-  const WORK_START   = 10; 
-  const WORK_END     = 19;
+  const WORK_START   = 10; // 10 AM IST
+  const WORK_END     = 19; // 7 PM GST
 
   // === WhatsApp Client Setup ===
   const wa = new Client({ authStrategy: new LocalAuth() });
@@ -283,7 +283,7 @@
 
       // Check current conversation stage with this group
       if (!stage) {
-        await chat.sendMessage(`${BOT_NAME}: Our office active hours are 7:30 AM – 5:30 PM GST.\nCan you let me know how urgent this is (1–10)?`);
+        await chat.sendMessage(`${BOT_NAME}: Our office active hours are 7:30 AM – 5:30 PM GST (Monday to Friday).\nCan you let me know how urgent this is (1–10)?`);
         afterHoursStage.set(groupId, 'askedUrgency');
         console.log('📨 Asked client for urgency level.');
         return;
@@ -293,18 +293,20 @@
       if (stage === 'askedUrgency') {
         const urgency = msg.body.trim();
         console.log(`📩 Urgency received: "${urgency}" from ${chat.name}`);
-
+      
         if (/^([1-9]|10)$/.test(urgency)) {
           const level = parseInt(urgency);
           dailyStats.receivedOvernight++;
-
-      // Store urgency message in sheet
+      
+          // Store urgency message in sheet
           await appendRow([istTime, gstTime, chat.name, msg.body, 'After-Hours', '', '']);
-
-
+      
           if (level >= 8) {
             await alertChat(chat, msg);
             await chat.sendMessage(`⚠️ ${BOT_NAME} has marked this as high urgency and alerted the team. They'll respond shortly.`);
+            afterHoursStage.delete(groupId);
+          } else if (level <= 3) {
+            await chat.sendMessage(`👍 ${BOT_NAME} has noted it. The team will follow up in the morning.`);
             afterHoursStage.delete(groupId);
           } else {
             await chat.sendMessage(`${BOT_NAME}: Would you like me to alert the accountant team now? (yes/no)`);
